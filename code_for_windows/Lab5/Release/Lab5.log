@@ -1,0 +1,5 @@
+﻿  main.c
+  Создание кода
+t:\учёба\asm\progects c\lab5\lab5\main.c(41): warning C4700: использована неинициализированная локальная переменная "Port"
+  Создание кода завершено
+  Lab5.vcxproj -> T:\Учёба\ASM\progects C\Lab5\Release\Lab5.exe
