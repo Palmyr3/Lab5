@@ -1,0 +1,17 @@
+RAM Allocation
+Variable                                                          Address   Size
+--------------------------------------------------------------------------------
+circularInputBuff                                                 0x0160     529
+inputBuffUart                                                     0x0371      18
+ouputBuffUart                                                     0x0383      18
+readyBuffUart                                                     0x0395      18
+
+EEPROM Allocation
+Variable                                                          Address   Size
+--------------------------------------------------------------------------------
+
+Register Allocation
+Variable                                                          Register  Size
+--------------------------------------------------------------------------------
+ouputBuffUartIterator                                             R5           1
+UARTtransmitterIsBisy                                             R4           1
