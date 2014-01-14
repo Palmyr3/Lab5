@@ -122,7 +122,7 @@ void nmeaParse (void)
             if(!circularInputBuff.ArrProc->isProced) break;
             kouput++;
         }
-        if(kouput >= NUMBER_OF_NMEA_MESSAGE)   //что-то совсем нехорошее: аппаратный сбой или переполнение кольцевого буффера
+        if(kouput >= NUMBER_OF_NMEA_MESSAGE)   //something horrible: hard error or circularInputBuff Overflow
         {   
             NmeaReset();
             indicationError();
@@ -132,7 +132,7 @@ void nmeaParse (void)
         fatalErrorHappened = circularInputBuff.ArrProc->uartError;
         circularInputBuff.dataToParse--;
         numOfBytes = circularInputBuff.ArrProc->numberOfBytes;
-        circularInputBuff.ArrProc->newData = 0x00; //сбрасываем флаг          
+        circularInputBuff.ArrProc->newData = 0x00; //drop flag
         
         if(circularInputBuff.ArrProc->buffArray[0] != 'G') return;
         if(circularInputBuff.ArrProc->buffArray[1] != 'P') return;

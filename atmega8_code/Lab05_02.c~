@@ -1,14 +1,13 @@
 /*****************************************************
 This program was produced by the
 CodeWizardAVR V2.05.0 Professional
-Automatic Program Generator
 © Copyright 1998-2010 Pavel Haiduc, HP InfoTech s.r.l.
 http://www.hpinfotech.com
 
 Project : 
 Version : 
 Date    : 04.01.2014
-Author  : 
+Author  : Palmyr3
 Company : 
 Comments: 
 
@@ -23,6 +22,7 @@ Data Stack size         : 256
 
 #include <mega8.h>
 //#include <delay.h>
+
 #define BUFFER_SIZE 18
 #define MAX_LENGH_NMEA_MESSAGE 100
 #define NUMBER_OF_NMEA_MESSAGE 5
