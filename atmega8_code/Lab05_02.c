@@ -23,9 +23,10 @@ Data Stack size         : 256
 #include <mega8.h>
 //#include <delay.h>
 
-#define BUFFER_SIZE 18
+#define BUFFER_SIZE 20
+#define TIME_BUFFER_SIZE 17
 #define MAX_LENGH_NMEA_MESSAGE 100
-#define NUMBER_OF_NMEA_MESSAGE 5
+#define NUMBER_OF_NMEA_MESSAGE 6
 //#define TRUE 0xFF
 //#define FALSE 0x00
 //#define NULL_CHAR 0x00
@@ -51,11 +52,19 @@ struct
     unsigned char dataToParse;
 }	circularInputBuff;
 
+typedef struct
+{
+    unsigned char timeValueBuff[TIME_BUFFER_SIZE];
+    unsigned char satteliteCatched;
+    unsigned char fatalErrorZDA;
+	unsigned char fatalErrorGSV;
+}   nmeaTime;
+
+nmeaTime inputNmeaTime;
+nmeaTime readyNmeaTime;
 
 unsigned char ouputBuffUartIterator;
-unsigned char inputBuffUart[BUFFER_SIZE];
 unsigned char ouputBuffUart[BUFFER_SIZE];
-unsigned char readyBuffUart[BUFFER_SIZE];
 unsigned char UARTtransmitterIsBisy;
 
 
@@ -66,10 +75,13 @@ void UART_data_send (void)
         int i;
         PORTD.2 = !PORTD.2; // #del
         UARTtransmitterIsBisy = 1;
-        for(i = 0; i < BUFFER_SIZE; i++)
+        for(i = 0; i < TIME_BUFFER_SIZE; i++)
         { 
-            ouputBuffUart [i] = readyBuffUart [i];
-        }
+            ouputBuffUart [i] = readyNmeaTime.timeValueBuff [i];
+        } 
+        ouputBuffUart [17] = readyNmeaTime.fatalErrorZDA;
+        ouputBuffUart [18] = readyNmeaTime.fatalErrorGSV;
+        ouputBuffUart [19] = readyNmeaTime.satteliteCatched;
         UDR = ouputBuffUart [0];
         ouputBuffUartIterator = 1;
         //разрешаем прерывания по пустому буфферу
@@ -95,15 +107,13 @@ void nmeaParse (void)
 {
     while(circularInputBuff.dataToParse)
     {    
-        char iinput;
+        char iinput; 
+        char kouput = 0;
         char parrityControlGet;
         char parrityControlCount;
-        char kouput = 0;
         char symbolBuff;
         char fatalErrorHappened;
         char numOfBytes; 
-                  
-//        PORTD.6 = 0; //del
         
         if (circularInputBuff.dataToParse > NUMBER_OF_NMEA_MESSAGE) // circularInputBuff Overflow
         {
@@ -135,68 +145,138 @@ void nmeaParse (void)
         circularInputBuff.ArrProc->newData = 0x00; //drop flag
         
         if(circularInputBuff.ArrProc->buffArray[0] != 'G') return;
-        if(circularInputBuff.ArrProc->buffArray[1] != 'P') return;
-        if(circularInputBuff.ArrProc->buffArray[2] != 'Z') return;
-        if(circularInputBuff.ArrProc->buffArray[3] != 'D') return;
-        if(circularInputBuff.ArrProc->buffArray[4] != 'A') return;
-        if(circularInputBuff.ArrProc->buffArray[5] != ',') return;
-        parrityControlCount = 0x64;       
+        if(circularInputBuff.ArrProc->buffArray[1] != 'P') return; 
         
-        for(iinput = 6; circularInputBuff.ArrProc->buffArray[iinput] != '*'; iinput++)
-        {   
+        if(circularInputBuff.ArrProc->buffArray[2] == 'Z') //return;                          
+        {
+            if(circularInputBuff.ArrProc->buffArray[3] != 'D') return;
+            if(circularInputBuff.ArrProc->buffArray[4] != 'A') return;
+            if(circularInputBuff.ArrProc->buffArray[5] != ',') return;
+            parrityControlCount = 0x64;       
+            
+            for(iinput = 6; circularInputBuff.ArrProc->buffArray[iinput] != '*'; iinput++)
+            {   
+                symbolBuff = circularInputBuff.ArrProc->buffArray[iinput];
+                if (iinput >= numOfBytes) //(iinput >= MAX_LENGH_NMEA_MESSAGE) 
+                {
+                    fatalErrorHappened |= 0xff;
+                    break;
+                }
+                parrityControlCount ^= symbolBuff;
+                if (symbolBuff == ',')
+                {
+                    continue;
+                }
+                if (symbolBuff == '.')
+                {
+                    continue;
+                }
+                symbolBuff &= 0x0f;   //from ACSII to BCD
+                inputNmeaTime.timeValueBuff[kouput] = symbolBuff;
+                kouput++;
+            }
+            
+            // Control summ from ASCII to HEX
+            iinput++; 
+            parrityControlGet = circularInputBuff.ArrProc->buffArray[iinput]; 
+            if(parrityControlGet & 0xC0) // if 0x4X
+            {
+                parrityControlGet += 9;
+            }
+            parrityControlGet &= 0x0f;
+            parrityControlGet <<=4;
+            iinput++;
             symbolBuff = circularInputBuff.ArrProc->buffArray[iinput];
-            if (iinput >= numOfBytes) //(iinput >= MAX_LENGH_NMEA_MESSAGE) 
+            if(symbolBuff & 0xC0) // if 0x4X
             {
-                fatalErrorHappened |= 0xff;
-                break;
+                symbolBuff += 9;
             }
-            parrityControlCount ^= symbolBuff;
-            if (symbolBuff == ',')
+            symbolBuff &= 0x0f;
+            parrityControlGet |= symbolBuff;        
+            if (parrityControlCount != parrityControlGet) fatalErrorHappened |= 0xff;
+            fatalErrorHappened |= circularInputBuff.ArrProc->newData;
+            
+			inputNmeaTime.fatalErrorZDA = fatalErrorHappened; 
+            
+            if(fatalErrorHappened)   // убрать
             {
-                continue;
-            }
-            if (symbolBuff == '.')
+                indicationError();
+            }                        // убрать
+            
+            readyNmeaTime.fatalErrorZDA = inputNmeaTime.fatalErrorZDA;
+            readyNmeaTime.fatalErrorGSV = inputNmeaTime.fatalErrorGSV;
+            readyNmeaTime.satteliteCatched = inputNmeaTime.satteliteCatched;
+            for(iinput = 0; iinput < TIME_BUFFER_SIZE; iinput++)
+            {   
+                readyNmeaTime.timeValueBuff [iinput] = inputNmeaTime.timeValueBuff [iinput];
+            }              
+        }
+        else
+        {
+			unsigned char j;
+            if(circularInputBuff.ArrProc->buffArray[2] != 'G') return;
+            if(circularInputBuff.ArrProc->buffArray[3] != 'S') return; 
+            if(circularInputBuff.ArrProc->buffArray[4] != 'V') return;
+            if(circularInputBuff.ArrProc->buffArray[5] != ',') return;
+            //циф
+            //,
+            if(circularInputBuff.ArrProc->buffArray[8] == '1') 
             {
-                continue;
+                inputNmeaTime.satteliteCatched = 0;    
+            } 
+            iinput = 12; // begin of description 1 satellite
+
+			for( j = 0; j < 4; j++)
+			{
+				if(circularInputBuff.ArrProc->buffArray[iinput] == '*') 
+				{
+					break;
+				}
+				kouput = 0;
+				while(kouput < 4)
+				{
+					if (iinput > numOfBytes) //(iinput >= MAX_LENGH_NMEA_MESSAGE) 
+					{
+						fatalErrorHappened |= 0xff;
+						break;
+					}
+					if(circularInputBuff.ArrProc->buffArray[iinput] == ',') 
+					{
+						kouput++;
+					}
+					iinput++;
+				}
+				//iinput++;
+				if((circularInputBuff.ArrProc->buffArray[iinput] != ',')&&(circularInputBuff.ArrProc->buffArray[iinput] != '*'))
+				{
+					if(circularInputBuff.ArrProc->buffArray[iinput] != '0') 
+					{
+						iinput++;
+						inputNmeaTime.satteliteCatched++;
+					}
+					else
+					{
+						iinput++;
+						if(circularInputBuff.ArrProc->buffArray[iinput] != '0')
+						{
+							inputNmeaTime.satteliteCatched++;
+						}
+					}
+					iinput++;
+				}
+			}			
+            fatalErrorHappened |= circularInputBuff.ArrProc->newData;
+
+			if (iinput > numOfBytes) //(iinput >= MAX_LENGH_NMEA_MESSAGE) 
+            {
+				fatalErrorHappened |= 0xff;
             }
-            symbolBuff &= 0x0f;   //from ACSII to BCD
-            inputBuffUart[kouput] = symbolBuff;
-            kouput++;
-        }
-        
-        // Control summ from ASCII to HEX
-        iinput++; 
-        parrityControlGet = circularInputBuff.ArrProc->buffArray[iinput]; 
-        if(parrityControlGet & 0xC0) // if 0x4X
-        {
-            parrityControlGet += 9;
-        }
-        parrityControlGet &= 0x0f;
-        parrityControlGet <<=4;
-        iinput++;
-        symbolBuff = circularInputBuff.ArrProc->buffArray[iinput];
-        if(symbolBuff & 0xC0) // if 0x4X
-        {
-            symbolBuff += 9;
-        }
-        symbolBuff &= 0x0f;
-        parrityControlGet |= symbolBuff;        
-        if (parrityControlCount != parrityControlGet) fatalErrorHappened |= 0xff;
-        fatalErrorHappened |= circularInputBuff.ArrProc->newData;
-        
-        if(fatalErrorHappened)   // убрать
-        {
-            indicationError();
-            inputBuffUart[17] = 0xff;
-        }                        // убрать
-        
-        if(!fatalErrorHappened)
-        {   
-            inputBuffUart[17] = 0x00;
-            for(iinput = 0; iinput < BUFFER_SIZE; iinput++)
-            { 
-                readyBuffUart [iinput] = inputBuffUart[iinput];
-            }
+			inputNmeaTime.fatalErrorGSV = fatalErrorHappened;
+			
+			if(fatalErrorHappened)   // убрать
+            {
+                indicationError();
+            }                        // убрать
         }
     }
 }
