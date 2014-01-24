@@ -64,9 +64,7 @@ nmeaTime inputNmeaTime;
 nmeaTime readyNmeaTime;
 
 unsigned char ouputBuffUartIterator;
-//unsigned char inputBuffUart[BUFFER_SIZE];
 unsigned char ouputBuffUart[BUFFER_SIZE];
-//unsigned char readyBuffUart[BUFFER_SIZE];
 unsigned char UARTtransmitterIsBisy;
 
 
@@ -75,8 +73,7 @@ void UART_data_send (void)
     if (!UARTtransmitterIsBisy)
     {   
         int i;
-        PORTD.2 = !PORTD.2; // #del
-        PORTD = (0<<6);     // #del
+        indicationSend();
         UARTtransmitterIsBisy = 1;
         for(i = 0; i < TIME_BUFFER_SIZE; i++)
         { 
@@ -104,6 +101,11 @@ void NmeaReset (void)
 void indicationError(void)
 {
     PORTD = (1<<6);
+}
+
+void indicationSend(void)
+{
+    PORTD.2 = !PORTD.2;
 }
 
 void nmeaParse (void)

@@ -21,15 +21,11 @@ Data Stack size         : 256
 *****************************************************/
 
 #include <mega8.h>
-//#include <delay.h>
 
 #define BUFFER_SIZE 20
 #define TIME_BUFFER_SIZE 17
 #define MAX_LENGH_NMEA_MESSAGE 100
 #define NUMBER_OF_NMEA_MESSAGE 6
-//#define TRUE 0xFF
-//#define FALSE 0x00
-//#define NULL_CHAR 0x00
 
 typedef struct
 {
@@ -67,13 +63,14 @@ unsigned char ouputBuffUartIterator;
 unsigned char ouputBuffUart[BUFFER_SIZE];
 unsigned char UARTtransmitterIsBisy;
 
-
 void UART_data_send (void)
 {
     if (!UARTtransmitterIsBisy)
     {   
-        int i;
-        PORTD.2 = !PORTD.2; // #del
+        int i; 
+        
+        //PORTD.2 = !PORTD.2;
+        
         UARTtransmitterIsBisy = 1;
         for(i = 0; i < TIME_BUFFER_SIZE; i++)
         { 
