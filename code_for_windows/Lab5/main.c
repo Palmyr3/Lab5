@@ -1,121 +1,110 @@
 #include <Windows.h>
-#include <Winbase.h>
 #include <stdio.h>
-#define BUFF_SIZE 18
 
-int main(void)
+#include "getData.h"
+#include "setTime.h"
+
+
+int main(int argc, char **argv)
 {
-	HANDLE Port;
-	BOOL operationIsFinishedOk;
-	DCB ComDCM;
-	COMMTIMEOUTS CommTimeOuts;
-	OVERLAPPED sync = {0};
-
-	static int TIMEOUT = 2000;
-	const int timeout = 2000;
-	unsigned char inBuff[BUFF_SIZE] ;
-	unsigned char buff = 0x00;
-	unsigned long feedback;
-	unsigned long wait = 0, read = 0, state = 0;
+	timeData realTime;
 	int i;
+	int skipError = 0;
+	int skipCheckNumberOfSatelitt = 0;
+	int printOnly = 0;
+	int outStatuse;
+	char portNumber1 = 0x00; 
+	char portNumber2 = 0x00;
 
-
-	//SYSTEMTIME st;
-	//GetSystemTime(&st);
-	//st.wHour = 0;
-	//st.wMinute = 0;
-	//st.wYear = 0x2014;
-	//SetSystemTime(&st);
-	//printf("The current timer value is %ld", biostime(0,0));
-
-
-	
-	/* settings*/
-	CommTimeOuts.ReadIntervalTimeout = 0xFFFFFFFF;
- 	CommTimeOuts.ReadTotalTimeoutMultiplier = 0;
- 	CommTimeOuts.ReadTotalTimeoutConstant = TIMEOUT;
- 	CommTimeOuts.WriteTotalTimeoutMultiplier = 0;
- 	CommTimeOuts.WriteTotalTimeoutConstant = TIMEOUT;
-
-	ComDCM.DCBlength = sizeof(DCB);
- 	GetCommState(Port, &ComDCM);
- 	ComDCM.BaudRate = 115200;
- 	ComDCM.ByteSize = 8;
- 	ComDCM.Parity = NOPARITY;
- 	ComDCM.StopBits = ONESTOPBIT;
- 	ComDCM.fAbortOnError = TRUE;
- 	ComDCM.fDtrControl = DTR_CONTROL_DISABLE;
- 	ComDCM.fRtsControl = RTS_CONTROL_DISABLE;
- 	ComDCM.fBinary = TRUE;
- 	ComDCM.fParity = FALSE;
- 	ComDCM.fInX = FALSE;
-    ComDCM.fOutX = FALSE;
- 	ComDCM.XonChar = 0;
- 	ComDCM.XoffChar = (unsigned char)0xFF;
- 	ComDCM.fErrorChar = FALSE;
- 	ComDCM.fNull = FALSE;
- 	ComDCM.fOutxCtsFlow = FALSE;
- 	ComDCM.fOutxDsrFlow = FALSE;
- 	ComDCM.XonLim = 128;
- 	ComDCM.XoffLim = 128;
-
-	
-	Port = CreateFile("\\\\.\\COM2", GENERIC_READ | GENERIC_WRITE, 0, NULL, OPEN_EXISTING, 0, NULL);
-	//Port = CreateFile("\\\\.\\COM2", GENERIC_READ | GENERIC_WRITE, 0, NULL, OPEN_EXISTING, FILE_FLAG_OVERLAPPED, NULL);
-	if (Port == INVALID_HANDLE_VALUE) 
+	if((argc != 2)&&(argc != 3))
 	{
-		printf("Port Not Opened");
+		printf("usage: GPStime -port [-f | -a | -p]");
+		printf("\n-f - skip all errors");
+		printf("\n-p - only ptint gps time");
+		printf("\n-a - set time, even when satellite not catched");
+		printf("\n-port - number of UART/USART/COM port");
 		getchar();
-		return 1;
+		return 30;
 	}
-	/*отправляем сигнал на мк*/
-	operationIsFinishedOk = WriteFile(Port, &buff, 1, &feedback, NULL);
-	if (operationIsFinishedOk)
+
+	if(argc == 3)
 	{
-		printf("Is OK\n");
+		if((*argv[2] == '-')&&(*(argv[2]+1)== 'f'))
+		{
+			skipError = 1;
+		}
+		if((*argv[2] == '-')&&(*(argv[2]+1)== 'p'))
+		{
+			printOnly = 1;
+		}
+		if((*argv[2] == '-')&&(*(argv[2]+1)== 'a'))
+		{
+			skipCheckNumberOfSatelitt = 1;
+		}
+	}
+	if(*argv[1] == '-')
+	{
+		portNumber1 = *(argv[1]+1);
+		portNumber2 = *(argv[1]+2);
+	}
+	
+	realTime = detData(portNumber1, portNumber2);
+
+	if (realTime.uartStatus)
+	{
+		switch (realTime.uartStatus)
+		{
+			case 1:
+				printf("Port Not Opened");
+				break;
+			case 2:
+				printf("Not write");
+				break;
+			case 3:
+				printf("Data not receive");
+				break;
+			default :
+				printf("Unknown error");
+				break;
+		}
+		getchar();
+		return realTime.uartStatus;
+	}
+
+	if (printOnly)
+	{
+		printf("%d%d:%d%d:%d%d.%d%d%d   ",realTime.timeValueBuff[0], realTime.timeValueBuff[1], realTime.timeValueBuff[2], realTime.timeValueBuff[3],
+			realTime.timeValueBuff[4], realTime.timeValueBuff[5], realTime.timeValueBuff[6], realTime.timeValueBuff[7],realTime.timeValueBuff[8]);
+		printf("%d%d.%d%d.%d%d%d%d\n", realTime.timeValueBuff[9], realTime.timeValueBuff[10], realTime.timeValueBuff[11], realTime.timeValueBuff[12],
+			realTime.timeValueBuff[13], realTime.timeValueBuff[14], realTime.timeValueBuff[15], realTime.timeValueBuff[17]); 
+		printf("Satellite catched: %d", realTime.satteliteCatched);
+		printf("\nFatal Error ZDA: %X", realTime.fatalErrorZDA);
+		printf("\nFatal Error GSV: %X", realTime.fatalErrorGSV);	
+		getchar();
 	}
 	else
 	{
-		printf("Not write");
-		getchar();
-	}
-
-	/* Создаем объект синхронизации */
-	sync.hEvent = CreateEvent(NULL,TRUE,FALSE,NULL);
- 
-	/* Устанавливаем маску на события порта */
-	if(SetCommMask(Port,EV_RXCHAR)) 
-	{
-		/* Связываем порт и объект синхронизации*/
-		WaitCommEvent(Port, &state, &sync);
-		/* Начинаем ожидание данных*/
-		wait = WaitForSingleObject(sync.hEvent, timeout);
-		/* Данные получены */		
-		if(wait == WAIT_OBJECT_0) 
+		outStatuse = setTime (realTime, skipError, skipCheckNumberOfSatelitt);
+		if (outStatuse)
 		{
-			/* Ждём пока все данные придут */
-			Sleep(15); 
-			/* Начинаем чтение данных */
-			ReadFile(Port, &inBuff, 18, &read, &sync);
-			/* Ждем завершения операции чтения */
-			wait = WaitForSingleObject(sync.hEvent, timeout);
-			/* Если все успешно завершено, узнаем какой объем данных прочитан */
-			if(wait == WAIT_OBJECT_0)
+			switch (outStatuse)
 			{
-				if(GetOverlappedResult(Port, &sync, &read, FALSE)) 
-				{
-					printf("Successfully reed: %d\n", read);
-				}
+				case 50:
+					printf("GPS receiver fatal error");
+					break;
+				case 51:
+					printf("No satellite catched");
+					break;
+				case 52:
+					printf("Time not set. You need administrator right");
+					break;
+				default :
+					printf("Unknown error");
+					break;
 			}
-		}
+			getchar();
+			return outStatuse;
+		}		
 	}
-	/* выводим данные */	
-	for(i = 0; i < BUFF_SIZE; i++)
-	{
-		printf("%X | ", inBuff[i]);
-	}
-	CloseHandle(sync.hEvent);
-	getchar();
-
-	return 0;
+	return 0;	
 }
