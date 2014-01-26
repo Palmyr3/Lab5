@@ -23,6 +23,7 @@ int main(int argc, char **argv)
 		printf("\n-p - only ptint gps time");
 		printf("\n-a - set time, even when satellite not catched");
 		printf("\n-port - number of UART/USART/COM port");
+		printf("\n-h - rotatsia vlastnix xmirei");   //does not always work
 		getchar();
 		return 30;
 	}
