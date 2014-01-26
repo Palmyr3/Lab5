@@ -210,13 +210,12 @@ void nmeaParse (void)
         }
         else
         {
-			unsigned char j;
+		unsigned char j;
             if(circularInputBuff.ArrProc->buffArray[2] != 'G') return;
             if(circularInputBuff.ArrProc->buffArray[3] != 'S') return; 
             if(circularInputBuff.ArrProc->buffArray[4] != 'V') return;
             if(circularInputBuff.ArrProc->buffArray[5] != ',') return;
-            //циф
-            //,
+
             if(circularInputBuff.ArrProc->buffArray[8] == '1') 
             {
                 inputNmeaTime.satteliteCatched = 0;    
@@ -243,7 +242,6 @@ void nmeaParse (void)
 					}
 					iinput++;
 				}
-				//iinput++;
 				if((circularInputBuff.ArrProc->buffArray[iinput] != ',')&&(circularInputBuff.ArrProc->buffArray[iinput] != '*'))
 				{
 					if(circularInputBuff.ArrProc->buffArray[iinput] != '0') 
@@ -264,13 +262,13 @@ void nmeaParse (void)
 			}			
             fatalErrorHappened |= circularInputBuff.ArrProc->newData;
 
-			if (iinput > numOfBytes) //(iinput >= MAX_LENGH_NMEA_MESSAGE) 
+		if (iinput > numOfBytes) //(iinput >= MAX_LENGH_NMEA_MESSAGE) 
             {
 				fatalErrorHappened |= 0xff;
             }
-			inputNmeaTime.fatalErrorGSV = fatalErrorHappened;
+		inputNmeaTime.fatalErrorGSV = fatalErrorHappened;
 			
-			if(fatalErrorHappened)   // убрать
+		if(fatalErrorHappened)   // убрать
             {
                 indicationError();
             }                        // убрать
